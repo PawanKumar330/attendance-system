@@ -27,6 +27,7 @@
 import os
 import json
 import logging
+import os
 import sys
 from datetime import datetime
 from typing import Any
@@ -99,21 +100,41 @@ NAME_COL   = 4   # D → Student Name
 
 def _get_gspread_client() -> gspread.Client:
     """
-    Authenticates with Google APIs using the Service Account credentials
-    stored in CREDENTIALS_FILE and returns an authorised gspread client.
-    Raises a RuntimeError if the credentials file is missing or invalid.
+    Authenticates with Google APIs using the Service Account credentials.
+
+    Credential loading priority:
+      1. GOOGLE_CREDENTIALS_JSON environment variable (used on Render / any
+         cloud host — paste the entire credentials.json content as the value).
+      2. credentials.json file in the project root (local development).
+
+    Raises RuntimeError if neither source is available or valid.
     """
     try:
-        creds = ServiceAccountCredentials.from_json_keyfile_name(
-            CREDENTIALS_FILE, SCOPES
-        )
+        env_creds = os.environ.get("GOOGLE_CREDENTIALS_JSON", "").strip()
+        if env_creds:
+            # Cloud deployment: credentials stored as an environment variable.
+            creds_dict = json.loads(env_creds)
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(
+                creds_dict, SCOPES
+            )
+            logger.info("Loaded credentials from GOOGLE_CREDENTIALS_JSON env var.")
+        else:
+            # Local development: credentials stored in a JSON file.
+            if not os.path.exists(CREDENTIALS_FILE):
+                raise FileNotFoundError(CREDENTIALS_FILE)
+            creds = ServiceAccountCredentials.from_json_keyfile_name(
+                CREDENTIALS_FILE, SCOPES
+            )
+            logger.info("Loaded credentials from '%s'.", CREDENTIALS_FILE)
+
         client = gspread.authorize(creds)
         logger.info("Successfully authenticated with Google Sheets API.")
         return client
     except FileNotFoundError:
         msg = (
-            f"'{CREDENTIALS_FILE}' not found. Place your downloaded Service "
-            "Account JSON key in the project root and rename it 'credentials.json'."
+            f"'{CREDENTIALS_FILE}' not found. Either place the Service Account "
+            "JSON key in the project root (local dev) or set the "
+            "GOOGLE_CREDENTIALS_JSON environment variable (cloud deployment)."
         )
         logger.error(msg)
         raise RuntimeError(msg)
@@ -457,7 +478,7 @@ def index():
 
 if __name__ == "__main__":
     logger.info("Starting Student Attendance System…")
-    logger.info("Open your browser at: http://127.0.0.1:5000")
-    # debug=True enables hot-reload during development.
-    # Set debug=False for production deployments.
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    debug = os.environ.get("FLASK_DEBUG", "true").lower() == "true"
+    logger.info("Open your browser at: http://127.0.0.1:%d", port)
+    app.run(host="0.0.0.0", port=port, debug=debug)
