@@ -24,7 +24,7 @@
            writes "P" or "A" in the corresponding row of the new col.
 ============================================================
 """
-
+import os
 import json
 import logging
 import sys
