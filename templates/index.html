@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Student Attendance Management System — Mark and submit daily attendance records synced with Google Sheets." />
+  <title>Student Attendance System</title>
+
+  <!-- Google Fonts: Inter for crisp UI text -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    /* =========================================================
+       Design Tokens — CSS Custom Properties
+       ========================================================= */
+    :root {
+      --color-bg-base:       #0b0f1a;
+      --color-bg-surface:    #121829;
+      --color-bg-card:       #1a2236;
+      --color-bg-card-hover: #1f2a42;
+      --color-border:        rgba(99, 132, 255, 0.15);
+      --color-border-strong: rgba(99, 132, 255, 0.35);
+
+      --color-primary:       #6384ff;
+      --color-primary-light: #8ba3ff;
+      --color-primary-glow:  rgba(99, 132, 255, 0.25);
+
+      --color-accent:        #a78bfa;
+      --color-accent-glow:   rgba(167, 139, 250, 0.2);
+
+      --color-success:       #34d399;
+      --color-success-bg:    rgba(52, 211, 153, 0.12);
+      --color-success-border:rgba(52, 211, 153, 0.3);
+
+      --color-error:         #f87171;
+      --color-error-bg:      rgba(248, 113, 113, 0.12);
+      --color-error-border:  rgba(248, 113, 113, 0.3);
+
+      --color-warning:       #fbbf24;
+      --color-warning-bg:    rgba(251, 191, 36, 0.12);
+      --color-warning-border:rgba(251, 191, 36, 0.3);
+
+      --color-text-primary:  #e2e8f8;
+      --color-text-secondary:#8897c0;
+      --color-text-muted:    #4a5578;
+
+      --color-present:       #34d399;
+      --color-present-bg:    rgba(52, 211, 153, 0.1);
+      --color-absent:        #f87171;
+      --color-absent-bg:     rgba(248, 113, 113, 0.1);
+
+      --radius-sm:  6px;
+      --radius-md:  12px;
+      --radius-lg:  18px;
+      --radius-xl:  24px;
+      --radius-full: 9999px;
+
+      --shadow-sm:   0 1px 3px rgba(0,0,0,0.4);
+      --shadow-md:   0 4px 16px rgba(0,0,0,0.4);
+      --shadow-lg:   0 8px 40px rgba(0,0,0,0.5);
+      --shadow-glow: 0 0 30px rgba(99,132,255,0.15);
+
+      --transition-fast:   150ms ease;
+      --transition-normal: 250ms ease;
+      --transition-slow:   400ms ease;
+
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    /* =========================================================
+       CSS Reset & Base
+       ========================================================= */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; font-size: 16px; }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--color-bg-base);
+      color: var(--color-text-primary);
+      min-height: 100vh;
+      line-height: 1.6;
+      overflow-x: hidden;
+      background-image:
+        radial-gradient(ellipse at 20% 10%, rgba(99, 132, 255, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(167, 139, 250, 0.06) 0%, transparent 50%);
+    }
+
+    /* =========================================================
+       Animated Background Orbs
+       ========================================================= */
+    .bg-orbs {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .bg-orb {
+      position: absolute;
+      border-radius: var(--radius-full);
+      filter: blur(80px);
+      opacity: 0.4;
+      animation: orb-drift 18s ease-in-out infinite alternate;
+    }
+    .bg-orb-1 {
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(99,132,255,0.2), transparent 70%);
+      top: -150px; left: -100px;
+      animation-duration: 18s;
+    }
+    .bg-orb-2 {
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(167,139,250,0.15), transparent 70%);
+      bottom: -100px; right: -80px;
+      animation-duration: 22s;
+      animation-delay: -6s;
+    }
+    .bg-orb-3 {
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, rgba(52,211,153,0.08), transparent 70%);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      animation-duration: 26s;
+      animation-delay: -12s;
+    }
+    @keyframes orb-drift {
+      0%   { transform: translate(0px, 0px) scale(1); }
+      33%  { transform: translate(30px, -20px) scale(1.05); }
+      66%  { transform: translate(-20px, 15px) scale(0.97); }
+      100% { transform: translate(10px, -30px) scale(1.02); }
+    }
+
+    /* =========================================================
+       Layout Wrappers
+       ========================================================= */
+    .page-wrapper {
+      position: relative;
+      z-index: 1;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px 80px;
+    }
+
+    /* =========================================================
+       Header / Hero Section
+       ========================================================= */
+    .site-header {
+      padding: 40px 0 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+      border-bottom: 1px solid var(--color-border);
+      margin-bottom: 36px;
+    }
+
+    .header-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .logo-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo-icon {
+      width: 48px; height: 48px;
+      background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 4px 20px var(--color-primary-glow);
+      flex-shrink: 0;
+    }
+
+    .site-title {
+      font-size: 1.75rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--color-text-primary) 0%, var(--color-primary-light) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+
+    .site-subtitle {
+      font-size: 0.85rem;
+      color: var(--color-text-secondary);
+      font-weight: 400;
+      margin-top: 2px;
+    }
+
+    .header-meta {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: var(--radius-full);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+
+    .badge-date {
+      background: rgba(99,132,255,0.12);
+      border: 1px solid var(--color-border-strong);
+      color: var(--color-primary-light);
+    }
+
+    .badge-live {
+      background: rgba(52,211,153,0.12);
+      border: 1px solid var(--color-success-border);
+      color: var(--color-success);
+      animation: live-pulse 2.5s ease-in-out infinite;
+    }
+
+    @keyframes live-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    .badge-live::before {
+      content: '';
+      width: 6px; height: 6px;
+      background: var(--color-success);
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    /* =========================================================
+       Stats Bar
+       ========================================================= */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: border-color var(--transition-normal), box-shadow var(--transition-normal);
+    }
+
+    .stat-card:hover {
+      border-color: var(--color-border-strong);
+      box-shadow: var(--shadow-md);
+    }
+
+    .stat-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--color-text-muted);
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      margin-top: 6px;
+    }
+
+    .stat-value.total  { color: var(--color-primary-light); }
+    .stat-value.present { color: var(--color-success); }
+    .stat-value.absent  { color: var(--color-error); }
+    .stat-value.pct     { color: var(--color-accent); }
+
+    /* =========================================================
+       Toolbar (Select All, Filter, etc.)
+       ========================================================= */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-left, .toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--color-text-primary);
+    }
+
+    .toolbar-count {
+      font-size: 0.8rem;
+      color: var(--color-text-secondary);
+    }
+
+    /* Quick-action buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 18px;
+      border-radius: var(--radius-md);
+      font-family: var(--font-sans);
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition:
+        background var(--transition-fast),
+        color var(--transition-fast),
+        border-color var(--transition-fast),
+        box-shadow var(--transition-fast),
+        transform var(--transition-fast);
+      white-space: nowrap;
+      outline: none;
+    }
+
+    .btn:active { transform: translateY(1px); }
+
+    .btn-ghost {
+      background: transparent;
+      border-color: var(--color-border);
+      color: var(--color-text-secondary);
+    }
+    .btn-ghost:hover {
+      background: var(--color-bg-card);
+      border-color: var(--color-border-strong);
+      color: var(--color-text-primary);
+    }
+
+    .btn-present {
+      background: var(--color-success-bg);
+      border-color: var(--color-success-border);
+      color: var(--color-success);
+    }
+    .btn-present:hover {
+      background: rgba(52,211,153,0.2);
+      box-shadow: 0 0 12px rgba(52,211,153,0.2);
+    }
+
+    .btn-absent {
+      background: var(--color-absent-bg);
+      border-color: rgba(248,113,113,0.3);
+      color: var(--color-absent);
+    }
+    .btn-absent:hover {
+      background: rgba(248,113,113,0.2);
+      box-shadow: 0 0 12px rgba(248,113,113,0.2);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--color-primary), #7c6de8);
+      color: #fff;
+      border-color: transparent;
+      padding: 10px 28px;
+      font-size: 0.9rem;
+      box-shadow: 0 4px 20px var(--color-primary-glow);
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, var(--color-primary-light), #9c8df5);
+      box-shadow: 0 6px 28px rgba(99,132,255,0.4);
+      transform: translateY(-1px);
+    }
+    .btn-primary:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* =========================================================
+       Main Table Card
+       ========================================================= */
+    .table-card {
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+    }
+
+    .table-scroll-wrapper {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 700px;
+    }
+
+    thead {
+      background: rgba(99,132,255,0.05);
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    th {
+      padding: 14px 20px;
+      text-align: left;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--color-text-muted);
+      white-space: nowrap;
+    }
+
+    th:last-child { text-align: center; }
+
+    tbody tr {
+      border-bottom: 1px solid rgba(99,132,255,0.07);
+      transition: background var(--transition-fast);
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+
+    tbody tr:hover {
+      background: var(--color-bg-card-hover);
+    }
+
+    tbody tr.is-absent {
+      background: rgba(248,113,113,0.04);
+    }
+    tbody tr.is-absent:hover {
+      background: rgba(248,113,113,0.08);
+    }
+
+    td {
+      padding: 14px 20px;
+      font-size: 0.88rem;
+      color: var(--color-text-primary);
+      vertical-align: middle;
+    }
+
+    td.td-sno {
+      color: var(--color-text-muted);
+      font-size: 0.78rem;
+      font-weight: 500;
+      width: 56px;
+    }
+
+    .roll-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.82rem;
+      font-weight: 600;
+      background: rgba(99,132,255,0.1);
+      border: 1px solid rgba(99,132,255,0.2);
+      color: var(--color-primary-light);
+      padding: 3px 10px;
+      border-radius: var(--radius-sm);
+      white-space: nowrap;
+    }
+
+    .reg-badge {
+      font-family: 'Courier New', monospace;
+      font-size: 0.8rem;
+      color: var(--color-text-secondary);
+    }
+
+    .student-name {
+      font-weight: 500;
+      color: var(--color-text-primary);
+    }
+
+    /* ── Toggle Switch ── */
+    td.td-toggle { text-align: center; }
+
+    .toggle-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 60px;
+      height: 30px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      border-radius: var(--radius-full);
+      background: var(--color-absent-bg);
+      border: 1.5px solid rgba(248,113,113,0.4);
+      cursor: pointer;
+      transition:
+        background var(--transition-normal),
+        border-color var(--transition-normal),
+        box-shadow var(--transition-normal);
+    }
+
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      left: 3px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--color-absent);
+      transition:
+        transform var(--transition-normal),
+        background var(--transition-normal),
+        box-shadow var(--transition-normal);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    .toggle-switch input:checked + .toggle-track {
+      background: var(--color-present-bg);
+      border-color: rgba(52,211,153,0.4);
+      box-shadow: 0 0 10px rgba(52,211,153,0.2);
+    }
+
+    .toggle-switch input:checked + .toggle-track::after {
+      transform: translate(30px, -50%);
+      background: var(--color-present);
+      box-shadow: 0 2px 8px rgba(52,211,153,0.4);
+    }
+
+    .toggle-switch input:focus-visible + .toggle-track {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+
+    .toggle-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      transition: color var(--transition-normal);
+    }
+
+    .toggle-label.present { color: var(--color-present); }
+    .toggle-label.absent  { color: var(--color-absent); }
+
+    /* =========================================================
+       Loading State (Skeleton)
+       ========================================================= */
+    .skeleton-row td {
+      padding: 16px 20px;
+    }
+
+    .skeleton {
+      height: 16px;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(90deg,
+        var(--color-bg-card) 25%,
+        rgba(99,132,255,0.06) 50%,
+        var(--color-bg-card) 75%
+      );
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+
+    .skeleton.w-sm { width: 48px; }
+    .skeleton.w-md { width: 90px; }
+    .skeleton.w-lg { width: 160px; }
+    .skeleton.w-xl { width: 200px; }
+    .skeleton.w-toggle { width: 60px; height: 30px; border-radius: 30px; margin: 0 auto; }
+
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* =========================================================
+       Empty / Error States
+       ========================================================= */
+    .state-cell {
+      text-align: center;
+      padding: 60px 24px !important;
+    }
+
+    .state-icon {
+      font-size: 3rem;
+      display: block;
+      margin-bottom: 12px;
+      opacity: 0.7;
+    }
+
+    .state-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      margin-bottom: 6px;
+    }
+
+    .state-desc {
+      font-size: 0.85rem;
+      color: var(--color-text-secondary);
+      max-width: 400px;
+      margin: 0 auto;
+    }
+
+    /* =========================================================
+       Submit Button Row
+       ========================================================= */
+    .submit-row {
+      margin-top: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .submit-hint {
+      font-size: 0.78rem;
+      color: var(--color-text-muted);
+    }
+
+    /* Spinner inside button */
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* =========================================================
+       Alert / Toast Banners
+       ========================================================= */
+    #alert-container {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-width: 420px;
+      width: calc(100vw - 48px);
+    }
+
+    .alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 16px 20px;
+      border-radius: var(--radius-lg);
+      border: 1px solid;
+      backdrop-filter: blur(12px);
+      animation: slide-in 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .alert.is-dismissing {
+      animation: slide-out 0.3s ease forwards;
+    }
+
+    @keyframes slide-in {
+      from { opacity: 0; transform: translateX(30px) scale(0.95); }
+      to   { opacity: 1; transform: translateX(0) scale(1); }
+    }
+
+    @keyframes slide-out {
+      from { opacity: 1; transform: translateX(0); max-height: 200px; }
+      to   { opacity: 0; transform: translateX(30px); max-height: 0; padding: 0; margin: 0; }
+    }
+
+    .alert.success {
+      background: rgba(18,30,45,0.95);
+      border-color: var(--color-success-border);
+    }
+    .alert.error {
+      background: rgba(18,30,45,0.95);
+      border-color: var(--color-error-border);
+    }
+    .alert.warning {
+      background: rgba(18,30,45,0.95);
+      border-color: var(--color-warning-border);
+    }
+    .alert.info {
+      background: rgba(18,30,45,0.95);
+      border-color: var(--color-border-strong);
+    }
+
+    .alert-icon {
+      font-size: 1.2rem;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .alert-body { flex: 1; }
+
+    .alert-title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--color-text-primary);
+      margin-bottom: 2px;
+    }
+
+    .alert-desc {
+      font-size: 0.78rem;
+      color: var(--color-text-secondary);
+      line-height: 1.5;
+    }
+
+    .alert-close {
+      background: none;
+      border: none;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 0;
+      line-height: 1;
+      flex-shrink: 0;
+      transition: color var(--transition-fast);
+    }
+    .alert-close:hover { color: var(--color-text-primary); }
+
+    /* Progress bar countdown */
+    .alert-progress {
+      position: absolute;
+      bottom: 0; left: 0;
+      height: 2px;
+      width: 100%;
+      transform-origin: left;
+      animation: progress-shrink var(--duration, 5s) linear forwards;
+    }
+    .alert.success .alert-progress { background: var(--color-success); }
+    .alert.error   .alert-progress { background: var(--color-error); }
+    .alert.warning .alert-progress { background: var(--color-warning); }
+    .alert.info    .alert-progress { background: var(--color-primary); }
+
+    @keyframes progress-shrink {
+      from { transform: scaleX(1); }
+      to   { transform: scaleX(0); }
+    }
+
+    /* =========================================================
+       Footer
+       ========================================================= */
+    .site-footer {
+      margin-top: 60px;
+      padding-top: 24px;
+      border-top: 1px solid var(--color-border);
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--color-text-muted);
+    }
+
+    /* =========================================================
+       Responsive Overrides
+       ========================================================= */
+    @media (max-width: 640px) {
+      .page-wrapper { padding: 0 16px 60px; }
+      .site-title { font-size: 1.3rem; }
+      .stats-bar { grid-template-columns: 1fr 1fr; }
+      .toolbar { flex-direction: column; align-items: flex-start; }
+      .submit-row { justify-content: stretch; }
+      .btn-primary { width: 100%; justify-content: center; }
+    }
+    /* =========================================================
+       Date Picker Card
+       ========================================================= */
+    .date-picker-card {
+      background: var(--color-bg-card);
+      border: 1px solid var(--color-border-strong);
+      border-radius: var(--radius-lg);
+      padding: 20px 28px;
+      margin-bottom: 28px;
+      box-shadow: var(--shadow-sm);
+      transition: border-color var(--transition-normal), box-shadow var(--transition-normal);
+    }
+    .date-picker-card:focus-within {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px var(--color-primary-glow);
+    }
+    .date-picker-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .date-picker-label-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .date-picker-icon {
+      font-size: 1.8rem;
+      line-height: 1;
+    }
+    .date-picker-label {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--color-text-primary);
+      display: block;
+      margin-bottom: 2px;
+    }
+    .date-picker-hint {
+      font-size: 0.75rem;
+      color: var(--color-text-secondary);
+    }
+    .date-input {
+      font-family: var(--font-sans);
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      background: var(--color-bg-surface);
+      border: 1.5px solid var(--color-border-strong);
+      border-radius: var(--radius-md);
+      padding: 10px 16px;
+      outline: none;
+      cursor: pointer;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+      color-scheme: dark;
+    }
+    .date-input:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px var(--color-primary-glow);
+    }
+    .date-input::-webkit-calendar-picker-indicator {
+      filter: invert(0.7) sepia(1) saturate(3) hue-rotate(200deg);
+      cursor: pointer;
+    }
+
+  </style>
+</head>
+<body>
+
+  <!-- Animated background orbs -->
+  <div class="bg-orbs" aria-hidden="true">
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+    <div class="bg-orb bg-orb-3"></div>
+  </div>
+
+  <!-- Toast Alert Container -->
+  <div id="alert-container" role="alert" aria-live="polite"></div>
+
+  <main class="page-wrapper">
+
+    <!-- ── Header ────────────────────────────────────────────── -->
+    <header class="site-header">
+      <div class="header-top-row">
+        <div class="logo-group">
+          <div class="logo-icon" aria-hidden="true">📋</div>
+          <div>
+            <h1 class="site-title">Attendance Dashboard</h1>
+            <p class="site-subtitle">Registration 2nd Sem — Google Sheets Sync</p>
+          </div>
+        </div>
+        <div class="header-meta">
+          <span class="badge badge-date" id="today-badge">📅 Loading…</span>
+          <span class="badge badge-live">LIVE SYNC</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ── Stats Bar ──────────────────────────────────────────── -->
+    <section class="stats-bar" aria-label="Attendance statistics">
+      <div class="stat-card">
+        <span class="stat-label">Total Students</span>
+        <span class="stat-value total" id="stat-total">—</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Present</span>
+        <span class="stat-value present" id="stat-present">—</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Absent</span>
+        <span class="stat-value absent" id="stat-absent">—</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Attendance %</span>
+        <span class="stat-value pct" id="stat-pct">—</span>
+      </div>
+    </section>
+
+    <!-- ── Date Picker Section ───────────────────────────── -->
+    <div class="date-picker-card">
+      <div class="date-picker-inner">
+        <div class="date-picker-label-group">
+          <span class="date-picker-icon">📅</span>
+          <div>
+            <label for="attendance-date" class="date-picker-label">Attendance Date</label>
+            <p class="date-picker-hint">Select the date you are marking attendance for</p>
+          </div>
+        </div>
+        <input
+          type="date"
+          id="attendance-date"
+          class="date-input"
+          aria-label="Select attendance date"
+        />
+      </div>
+    </div>
+
+    <!-- ── Toolbar ────────────────────────────────────────────── -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <span class="toolbar-title">Student Records</span>
+        <span class="toolbar-count" id="toolbar-count">Loading…</span>
+      </div>
+      <div class="toolbar-right">
+        <button id="btn-mark-all-present" class="btn btn-present" onclick="markAll(true)" disabled>
+          ✅ All Present
+        </button>
+        <button id="btn-mark-all-absent" class="btn btn-absent" onclick="markAll(false)" disabled>
+          ❌ All Absent
+        </button>
+        <button class="btn btn-ghost" onclick="refreshStudents()">
+          🔄 Refresh
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Table Card ─────────────────────────────────────────── -->
+    <div class="table-card">
+      <div class="table-scroll-wrapper">
+        <table id="attendance-table" aria-label="Student attendance list">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">Roll No.</th>
+              <th scope="col">Reg Number</th>
+              <th scope="col">Student Name</th>
+              <th scope="col">Attendance</th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            <!-- Skeleton rows injected by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Submit Row ─────────────────────────────────────────── -->
+    <div class="submit-row">
+      <span class="submit-hint" id="submit-hint">
+        Mark attendance above, then click Submit.
+      </span>
+      <button
+        id="submit-btn"
+        class="btn btn-primary"
+        onclick="submitAttendance()"
+        disabled
+        aria-label="Submit attendance to Google Sheets"
+      >
+        <div class="spinner" id="submit-spinner" aria-hidden="true"></div>
+        <span id="submit-btn-text">🚀 Submit Attendance</span>
+      </button>
+    </div>
+
+    <!-- ── Footer ─────────────────────────────────────────────── -->
+    <footer class="site-footer">
+      <p>Student Attendance System &bull; Powered by Flask &amp; Google Sheets API</p>
+    </footer>
+
+  </main>
+
+  <!-- =========================================================
+       JavaScript — Async Frontend Logic
+       ========================================================= -->
+  <script>
+    /* ── State ──────────────────────────────────────────────────── */
+    let students = [];       // Array<{roll_no, reg_no, name}>
+    let isLoading = false;
+    let isSubmitting = false;
+
+    /* ── Utilities ──────────────────────────────────────────────── */
+
+    /**
+     * Returns today's date formatted as "Weekday, Month Day, Year"
+     * e.g. "Wednesday, May 21, 2026"
+     */
+    function getFormattedToday() {
+      return new Date().toLocaleDateString('en-US', {
+        weekday: 'long',
+        year:    'numeric',
+        month:   'long',
+        day:     'numeric',
+      });
+    }
+
+    /**
+     * Reads all checkbox states and returns:
+     *   { presentCount, absentCount, pct }
+     */
+    function computeStats() {
+      const total = students.length;
+      if (total === 0) return { total: 0, presentCount: 0, absentCount: 0, pct: '—' };
+      const presentCount = students.filter((_, i) => {
+        const cb = document.getElementById(`cb-${i}`);
+        return cb ? cb.checked : true;
+      }).length;
+      const absentCount = total - presentCount;
+      const pct = total > 0 ? ((presentCount / total) * 100).toFixed(1) + '%' : '—';
+      return { total, presentCount, absentCount, pct };
+    }
+
+    /** Refreshes all four stat cards */
+    function updateStats() {
+      const { total, presentCount, absentCount, pct } = computeStats();
+      document.getElementById('stat-total').textContent   = total   || '—';
+      document.getElementById('stat-present').textContent = presentCount >= 0 ? presentCount : '—';
+      document.getElementById('stat-absent').textContent  = absentCount >= 0  ? absentCount  : '—';
+      document.getElementById('stat-pct').textContent     = pct;
+    }
+
+    /* ── Skeleton Loader ─────────────────────────────────────────── */
+    function renderSkeletons(count = 8) {
+      const tbody = document.getElementById('table-body');
+      tbody.innerHTML = Array.from({ length: count }, (_, i) => `
+        <tr class="skeleton-row" aria-hidden="true">
+          <td><div class="skeleton w-sm"></div></td>
+          <td><div class="skeleton w-md"></div></td>
+          <td><div class="skeleton w-lg"></div></td>
+          <td><div class="skeleton w-xl"></div></td>
+          <td><div class="skeleton w-toggle"></div></td>
+        </tr>
+      `).join('');
+    }
+
+    /* ── Table Renderer ──────────────────────────────────────────── */
+    function renderTable() {
+      const tbody = document.getElementById('table-body');
+
+      if (students.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" class="state-cell">
+              <span class="state-icon">📭</span>
+              <p class="state-title">No student records found</p>
+              <p class="state-desc">
+                The spreadsheet returned no data from Row 3 onwards.
+                Ensure rows are populated and the sheet is shared with the service account.
+              </p>
+            </td>
+          </tr>
+        `;
+        document.getElementById('toolbar-count').textContent = '0 students';
+        updateStats();
+        return;
+      }
+
+      tbody.innerHTML = students.map((s, i) => `
+        <tr id="row-${i}" class="">
+          <td class="td-sno">${i + 1}</td>
+          <td>
+            <span class="roll-badge">${escHtml(s.roll_no) || '—'}</span>
+          </td>
+          <td>
+            <span class="reg-badge">${escHtml(s.reg_no) || '—'}</span>
+          </td>
+          <td>
+            <span class="student-name">${escHtml(s.name) || 'Unknown'}</span>
+          </td>
+          <td class="td-toggle">
+            <div class="toggle-wrapper">
+              <label
+                class="toggle-switch"
+                aria-label="Mark attendance for ${escHtml(s.name)}"
+              >
+                <input
+                  type="checkbox"
+                  id="cb-${i}"
+                  checked
+                  onchange="onToggleChange(${i}, this.checked)"
+                />
+                <span class="toggle-track"></span>
+              </label>
+              <span class="toggle-label present" id="label-${i}">P</span>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      document.getElementById('toolbar-count').textContent =
+        `${students.length} student${students.length !== 1 ? 's' : ''}`;
+
+      // Enable action buttons
+      document.getElementById('btn-mark-all-present').disabled = false;
+      document.getElementById('btn-mark-all-absent').disabled  = false;
+      document.getElementById('submit-btn').disabled           = false;
+
+      updateStats();
+    }
+
+    /** Sanitize HTML to prevent XSS */
+    function escHtml(str) {
+      const d = document.createElement('div');
+      d.appendChild(document.createTextNode(str || ''));
+      return d.innerHTML;
+    }
+
+    /* ── Toggle Handlers ─────────────────────────────────────────── */
+    function onToggleChange(index, isChecked) {
+      const row   = document.getElementById(`row-${index}`);
+      const label = document.getElementById(`label-${index}`);
+      if (isChecked) {
+        row.classList.remove('is-absent');
+        label.textContent  = 'P';
+        label.className    = 'toggle-label present';
+      } else {
+        row.classList.add('is-absent');
+        label.textContent  = 'A';
+        label.className    = 'toggle-label absent';
+      }
+      updateStats();
+    }
+
+    function markAll(present) {
+      students.forEach((_, i) => {
+        const cb = document.getElementById(`cb-${i}`);
+        if (cb && cb.checked !== present) {
+          cb.checked = present;
+          onToggleChange(i, present);
+        }
+      });
+    }
+
+    /* ── Fetch Students ──────────────────────────────────────────── */
+    async function fetchStudents() {
+      if (isLoading) return;
+      isLoading = true;
+      renderSkeletons(8);
+      document.getElementById('toolbar-count').textContent = 'Loading…';
+      document.getElementById('submit-btn').disabled = true;
+      document.getElementById('btn-mark-all-present').disabled = true;
+      document.getElementById('btn-mark-all-absent').disabled  = true;
+
+      try {
+        const resp = await fetch('/api/students');
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          throw new Error(err.error || `Server returned ${resp.status}`);
+        }
+        const data = await resp.json();
+        students = data.students || [];
+        renderTable();
+        showAlert('success', '✅ Data Loaded', `${students.length} student records fetched from Google Sheets.`, 4000);
+      } catch (err) {
+        students = [];
+        renderErrorState(err.message);
+        showAlert('error', '❌ Failed to Load', err.message, 8000);
+      } finally {
+        isLoading = false;
+      }
+    }
+
+    function refreshStudents() {
+      fetchStudents();
+    }
+
+    function renderErrorState(message) {
+      const tbody = document.getElementById('table-body');
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="5" class="state-cell">
+            <span class="state-icon">⚠️</span>
+            <p class="state-title">Failed to load students</p>
+            <p class="state-desc">${escHtml(message)}</p>
+          </td>
+        </tr>
+      `;
+      document.getElementById('toolbar-count').textContent = 'Error';
+      updateStats();
+    }
+
+    /* ── Submit Attendance ───────────────────────────────────────── */
+    async function submitAttendance() {
+      if (isSubmitting || students.length === 0) return;
+      isSubmitting = true;
+
+      // ── Toggle button to loading state ──
+      const btn     = document.getElementById('submit-btn');
+      const spinner = document.getElementById('submit-spinner');
+      const btnText = document.getElementById('submit-btn-text');
+      btn.disabled        = true;
+      spinner.style.display = 'block';
+      btnText.textContent = 'Submitting…';
+      document.getElementById('submit-hint').textContent = 'Writing to Google Sheets, please wait…';
+
+      // ── Read selected date ──
+      const dateInput = document.getElementById('attendance-date');
+      const selectedDate = dateInput ? dateInput.value : '';
+      if (!selectedDate) {
+        showAlert('error', '📅 No Date Selected', 'Please select an attendance date before submitting.', 6000);
+        isSubmitting      = false;
+        btn.disabled      = false;
+        spinner.style.display = 'none';
+        btnText.textContent   = '🚀 Submit Attendance';
+        document.getElementById('submit-hint').textContent = 'Mark attendance above, then click Submit.';
+        return;
+      }
+
+      // ── Build payload ──
+      const attendance = students.map((s, i) => {
+        const cb = document.getElementById(`cb-${i}`);
+        return {
+          roll_no: s.roll_no,
+          reg_no:  s.reg_no,
+          status:  (cb && cb.checked) ? 'P' : 'A',
+        };
+      });
+
+      try {
+        const resp = await fetch('/api/attendance', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ attendance, date: selectedDate }),
+        });
+
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          throw new Error(data.error || `Server error ${resp.status}`);
+        }
+
+        // ── Success ──
+        const { matched_count, skipped_count, total_submitted, date_written, column_written, is_new_column, unmatched } = data;
+        const colAction = is_new_column ? 'New column' : 'Existing column';
+        let successMsg = `${colAction} ${column_written} | Written: ${matched_count}, Skipped (already filled): ${skipped_count || 0}, Date: ${date_written}.`;
+        if (unmatched && unmatched.length > 0) {
+          successMsg += ` ⚠️ Unmatched: ${unmatched.join(', ')}`;
+        }
+        showAlert('success', '🎉 Attendance Submitted!', successMsg, 8000);
+        document.getElementById('submit-hint').textContent =
+          `Last saved: ${date_written} at ${new Date().toLocaleTimeString()}`;
+
+        if (unmatched && unmatched.length > 0) {
+          showAlert('warning', '⚠️ Some Records Unmatched',
+            `These Roll/Reg numbers had no matching row: ${unmatched.join(', ')}`, 10000);
+        }
+
+      } catch (err) {
+        showAlert('error', '❌ Submission Failed', err.message, 10000);
+        document.getElementById('submit-hint').textContent = 'Submission failed. Please try again.';
+      } finally {
+        isSubmitting      = false;
+        btn.disabled      = false;
+        spinner.style.display = 'none';
+        btnText.textContent   = '🚀 Submit Attendance';
+      }
+    }
+
+    /* ── Alert / Toast System ────────────────────────────────────── */
+    /**
+     * Displays a toast alert.
+     * @param {'success'|'error'|'warning'|'info'} type
+     * @param {string} title
+     * @param {string} description
+     * @param {number} durationMs  Auto-dismiss duration in ms (default 5000)
+     */
+    function showAlert(type, title, description, durationMs = 5000) {
+      const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+      const container = document.getElementById('alert-container');
+
+      const alert = document.createElement('div');
+      alert.className = `alert ${type}`;
+      alert.setAttribute('role', 'alert');
+      alert.style.setProperty('--duration', `${durationMs / 1000}s`);
+      alert.innerHTML = `
+        <span class="alert-icon" aria-hidden="true">${icons[type] || 'ℹ️'}</span>
+        <div class="alert-body">
+          <div class="alert-title">${escHtml(title)}</div>
+          <div class="alert-desc">${escHtml(description)}</div>
+        </div>
+        <button class="alert-close" aria-label="Dismiss alert" onclick="dismissAlert(this.closest('.alert'))">✕</button>
+        <div class="alert-progress"></div>
+      `;
+
+      container.appendChild(alert);
+
+      // Auto-dismiss
+      const timer = setTimeout(() => dismissAlert(alert), durationMs);
+      alert._timer = timer;
+    }
+
+    function dismissAlert(alertEl) {
+      if (!alertEl || alertEl.isConnected === false) return;
+      clearTimeout(alertEl._timer);
+      alertEl.classList.add('is-dismissing');
+      alertEl.addEventListener('animationend', () => alertEl.remove(), { once: true });
+    }
+
+    /* ── Initialise ──────────────────────────────────────────────── */
+    document.addEventListener('DOMContentLoaded', () => {
+      // Set today's date in the header badge
+      document.getElementById('today-badge').textContent = '📅 ' + getFormattedToday();
+      // Set today's date as the default value in the date picker
+      const todayISO = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const dateInput = document.getElementById('attendance-date');
+      if (dateInput) dateInput.value = todayISO;
+      // Load students
+      fetchStudents();
+    });
+  </script>
+
+</body>
+</html>
