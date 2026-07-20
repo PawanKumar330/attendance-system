@@ -870,6 +870,33 @@
       cursor: pointer;
     }
 
+    .badge-user {
+      background: rgba(167,139,250,0.12);
+      border: 1px solid rgba(167,139,250,0.3);
+      color: #c4b5fd;
+    }
+
+    .btn-logout {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 14px;
+      border-radius: var(--radius-full);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      text-decoration: none;
+      background: rgba(248,113,113,0.1);
+      border: 1px solid rgba(248,113,113,0.3);
+      color: var(--color-error);
+      transition: background var(--transition-fast), box-shadow var(--transition-fast);
+    }
+    .btn-logout:hover {
+      background: rgba(248,113,113,0.2);
+      box-shadow: 0 0 12px rgba(248,113,113,0.2);
+    }
+
   </style>
 </head>
 <body>
@@ -899,6 +926,8 @@
         <div class="header-meta">
           <span class="badge badge-date" id="today-badge">📅 Loading…</span>
           <span class="badge badge-live">LIVE SYNC</span>
+          <span class="badge badge-user">👤 {{ username }}</span>
+          <a href="/logout" class="btn-logout" id="logout-btn">⏻ Logout</a>
         </div>
       </div>
     </header>

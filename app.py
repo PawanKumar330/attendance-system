@@ -24,7 +24,7 @@
            writes "P" or "A" in the corresponding row of the new col.
 ============================================================
 """
-import os
+import functools
 import json
 import logging
 import os
@@ -33,7 +33,10 @@ from datetime import datetime
 from typing import Any
 
 import gspread
-from flask import Flask, jsonify, render_template, request
+from flask import (
+    Flask, jsonify, redirect, render_template,
+    request, session, url_for,
+)
 from oauth2client.service_account import ServiceAccountCredentials
 
 # ---------------------------------------------------------------------------
@@ -50,6 +53,22 @@ logger = logging.getLogger("attendance_system")
 # Flask Application Initialisation
 # ---------------------------------------------------------------------------
 app = Flask(__name__)
+
+# ---------------------------------------------------------------------------
+# Auth Configuration
+# ---------------------------------------------------------------------------
+# SECRET_KEY is required for Flask sessions (signing cookies).
+# Set it as an env var in production. A hard-coded fallback is fine for local
+# dev but MUST be overridden on Render / any public deployment.
+app.secret_key = os.environ.get(
+    "SECRET_KEY",
+    "change-me-in-production-please-set-SECRET_KEY-env-var",
+)
+
+# Admin credentials — set ADMIN_USERNAME and ADMIN_PASSWORD as env vars.
+# Defaults are only for local development convenience.
+ADMIN_USERNAME: str = os.environ.get("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD: str = os.environ.get("ADMIN_PASSWORD", "admin123")
 
 # ---------------------------------------------------------------------------
 # Google Sheets Configuration
@@ -239,10 +258,55 @@ def _parse_date_cell(cell_value: str) -> datetime | None:
 
 
 # ---------------------------------------------------------------------------
+# Auth: login_required decorator
+# ---------------------------------------------------------------------------
+
+def login_required(f):
+    """Redirects unauthenticated requests to the login page."""
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("logged_in"):
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated
+
+
+# ---------------------------------------------------------------------------
+# Auth Routes: GET|POST /login  and  GET /logout
+# ---------------------------------------------------------------------------
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    """Renders login form (GET) and validates credentials (POST)."""
+    error: str | None = None
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "").strip()
+        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+            session["logged_in"] = True
+            session["username"] = username
+            logger.info("Admin '%s' logged in.", username)
+            return redirect(url_for("index"))
+        error = "Invalid username or password. Please try again."
+        logger.warning("Failed login attempt for username '%s'.", username)
+    return render_template("login.html", error=error)
+
+
+@app.route("/logout")
+def logout():
+    """Clears the session and redirects to the login page."""
+    username = session.get("username", "unknown")
+    session.clear()
+    logger.info("Admin '%s' logged out.", username)
+    return redirect(url_for("login"))
+
+
+# ---------------------------------------------------------------------------
 # API Endpoint: GET /api/students
 # ---------------------------------------------------------------------------
 
 @app.route("/api/students", methods=["GET"])
+@login_required
 def get_students() -> Any:
     """
     Reads all student records from the spreadsheet (Row 3 downwards) and
@@ -300,6 +364,7 @@ def get_students() -> Any:
 # ---------------------------------------------------------------------------
 
 @app.route("/api/attendance", methods=["POST"])
+@login_required
 def submit_attendance() -> Any:
     """
     Accepts attendance data and writes it into the sheet.
@@ -467,9 +532,10 @@ def submit_attendance() -> Any:
 # ---------------------------------------------------------------------------
 
 @app.route("/")
+@login_required
 def index():
     """Serves the main attendance dashboard."""
-    return render_template("index.html")
+    return render_template("index.html", username=session.get("username", "Admin"))
 
 
 # ---------------------------------------------------------------------------
