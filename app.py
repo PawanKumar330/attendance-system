@@ -35,7 +35,7 @@ from typing import Any
 import gspread
 from flask import (
     Flask, jsonify, redirect, render_template,
-    request, session, url_for,
+    request, send_from_directory, session, url_for,
 )
 from oauth2client.service_account import ServiceAccountCredentials
 
@@ -269,6 +269,24 @@ def login_required(f):
             return redirect(url_for("login"))
         return f(*args, **kwargs)
     return decorated
+
+
+# ---------------------------------------------------------------------------
+# PWA Routes — service worker must be served from root scope
+# ---------------------------------------------------------------------------
+
+@app.route("/sw.js")
+def service_worker():
+    """Serves the service worker from root so it controls the full app scope."""
+    return send_from_directory("static", "sw.js",
+                               mimetype="application/javascript")
+
+
+@app.route("/manifest.json")
+def manifest():
+    """Serves the PWA web app manifest."""
+    return send_from_directory("static", "manifest.json",
+                               mimetype="application/manifest+json")
 
 
 # ---------------------------------------------------------------------------
